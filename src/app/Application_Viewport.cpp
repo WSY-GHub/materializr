@@ -793,6 +793,10 @@ void Application::renderViewport() {
                 m_sectionView->apply(std::move(r));
         }
         m_shapeRenderer->render(view, proj, cam.getPosition());
+        // A throttled metal-reflection rebuild is waiting: draw again soon or
+        // render-on-demand would leave the stale reflection up.
+        if (m_shapeRenderer->reflectionPending())
+            m_wakeFrames = std::max(m_wakeFrames, 2);
         m_edgeRenderer->render(view, proj);
         // Passes that draw IN FRONT - the reference photo (500), construction
         // planes (501) and axes (502),

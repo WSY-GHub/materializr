@@ -163,6 +163,9 @@ private:
     bool m_showPlanes = true;
     bool m_bodyDeleted = false;
     bool m_hovered = false;   // panel hovered last frame (for touch long-press arming)
+    // Body whose appearance editor replaces the list, -1 = showing the list.
+    int m_appearanceBodyId = -1;
+    void renderAppearanceEditor(int id);
     // Auto-scroll: when the selected body / sketch changes (e.g. a viewport
     // pick), scroll its row into view. -1 = no pending scroll.
     int m_lastSelectedBodyId = -1;

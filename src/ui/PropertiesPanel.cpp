@@ -2,6 +2,11 @@
 #include "UiTheme.h"
 #include "PropertiesPanel.h"
 #include "core/HistoryPanelActions.h"
+#include "core/ItemsPanelActions.h"
+#include "core/Material.h"
+#include "MaterialPicker.h"
+#include "../app/AsyncJob.h"
+#include <TopExp_Explorer.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepGProp.hxx>
@@ -27,6 +32,8 @@
 #include "../plugin/PluginRegistry.h"
 #include "../core/NumParse.h"
 #include <imgui.h>
+#include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -172,7 +179,124 @@ static void renderSubShapeProperties(const SelectionManager& sel) {
 
 namespace materializr {
 
-PropertiesPanel::PropertiesPanel() = default;
+// Volume (and surface area, for a printed part's shell) for the mass readout.
+// BRepGProp::VolumeProperties integrates over
+// every face, and a threaded or imported-mesh body takes long enough to stall
+// frames (the bbox readout below learned that the hard way), so it runs on a
+// worker and the readout says so until it lands. One entry: the selected body.
+// The shape is HELD, not just its TShape address, so the address cannot be
+// freed and recycled into a false hit. Keyed on TShape alone because a rigid
+// move (the Location) does not change a volume.
+struct PropertiesPanel::VolumeCache {
+    struct Result {
+        TopoDS_Shape shape;   // null = nothing landed yet
+        bool solid = false;   // false: open shells / faces only - no volume
+        double mm3 = 0.0;
+        double areaMm2 = 0.0; // of the same solids: the printed-mass shell
+    };
+    AsyncJob<Result> job;
+    TopoDS_Shape pending;     // what `job` is computing
+    Result done;              // the last result that landed
+
+    // The volume of `shape` once known; nullptr while it is being computed.
+    const Result* lookup(const TopoDS_Shape& shape) {
+        if (auto r = job.take()) done = std::move(*r);
+        if (!done.shape.IsNull() && done.shape.TShape() == shape.TShape()) return &done;
+        if (job.running() && pending.TShape() == shape.TShape()) return nullptr;
+        pending = shape;
+        job.launch([shape]() {
+            Result r;
+            r.shape = shape;
+            // Per solid, so stray open shells in a compound add nothing.
+            try {
+                for (TopExp_Explorer ex(shape, TopAbs_SOLID); ex.More(); ex.Next()) {
+                    GProp_GProps g;
+                    BRepGProp::VolumeProperties(ex.Current(), g);
+                    r.mm3 += std::abs(g.Mass());
+                    GProp_GProps a;
+                    BRepGProp::SurfaceProperties(ex.Current(), a);
+                    r.areaMm2 += std::abs(a.Mass());
+                    r.solid = true;
+                }
+            } catch (...) {
+                // Landing a result either way: a null one would relaunch every frame.
+                r.solid = false;
+                r.mm3 = 0.0;
+            }
+            return r;
+        });
+        return nullptr;
+    }
+};
+
+PropertiesPanel::PropertiesPanel() : m_volume(std::make_unique<VolumeCache>()) {}
+PropertiesPanel::~PropertiesPanel() = default;
+
+void PropertiesPanel::renderBodyMaterial(int bodyId) {
+    ImGui::TextColored(materializr::accentText(), "%s", materializr::tr("Material"));
+    const std::string cur = m_document->getBodyMaterial(bodyId);
+    std::string picked;
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (materialCombo("##material", cur, picked)) {
+        // Every selected body takes the pick, like a colour drag over a
+        // multi-selection would if the swatch allowed one.
+        for (const auto& e : m_selection->getSelection())
+            if (e.type == SelectionType::Body && e.bodyId >= 0)
+                setBodyMaterialAndMark(*m_document, e.bodyId, picked, m_markBodyDirty);
+        if (m_markDirty) m_markDirty();
+    }
+
+    const Material* mat = findMaterial(cur);
+    if (mat && mat->fdm) {
+        // Infill and walls, the two slicer settings that move the weight most.
+        // Like the material, an edit applies to every selected body.
+        PrintSettings ps = m_document->getBodyPrint(bodyId);
+        bool changed = false;
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0f);
+        if (inputNumberInt(materializr::tr("Infill %"), &ps.infillPercent, 5, 10)) changed = true;
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0f);
+        if (inputNumberInt(materializr::tr("Walls"), &ps.walls, 1, 1)) changed = true;
+        if (changed) {
+            ps.infillPercent = std::clamp(ps.infillPercent, 0, 100);
+            ps.walls = std::clamp(ps.walls, 1, 20);
+            for (const auto& e : m_selection->getSelection())
+                if (e.type == SelectionType::Body && e.bodyId >= 0)
+                    m_document->setBodyPrint(e.bodyId, ps);
+            if (m_markDirty) m_markDirty();
+        }
+    }
+
+    const TopoDS_Shape& shape = m_document->getBody(bodyId);
+    if (shape.IsNull()) return;
+    const VolumeCache::Result* vol = m_volume->lookup(shape);
+    if (!vol) {
+        ImGui::TextDisabled("%s", materializr::tr("Volume: computing..."));
+        return;
+    }
+    if (!vol->solid) {
+        ImGui::TextDisabled("%s", materializr::tr("Not a closed solid - no volume or mass."));
+        return;
+    }
+    ImGui::TextUnformatted(materializr::trFormat("Volume: %s", materializr::fmtVolume(vol->mm3)).c_str());
+    if (!mat) {
+        ImGui::TextDisabled("%s", materializr::tr("Pick a material to see the mass."));
+        return;
+    }
+    const double solidGrams = massGrams(vol->mm3, *mat);
+    if (mat->fdm) {
+        const double printed = printedMassGrams(vol->mm3, vol->areaMm2, *mat,
+                                                m_document->getBodyPrint(bodyId));
+        ImGui::TextUnformatted(materializr::trFormat("Printed mass: ~%s", materializr::fmtMass(printed)).c_str());
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", materializr::tr(
+                "Estimated the way a slicer counts it: the walls and the top and bottom "
+                "skins are solid (each wall is a 0.45 mm line), the inside is filled at the "
+                "infill percentage. Supports, brim and purge are not included."));
+        ImGui::TextDisabled("%s", materializr::trFormat("Solid: %s", materializr::fmtMass(solidGrams)).c_str());
+    } else {
+        ImGui::TextUnformatted(materializr::trFormat("Mass: %s", materializr::fmtMass(solidGrams)).c_str());
+    }
+}
 
 void PropertiesPanel::setHistory(History* history) {
     m_history = history;
@@ -379,6 +503,10 @@ void PropertiesPanel::renderContent() {
         } else {
             ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", materializr::tr("No shape data"));
         }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        renderBodyMaterial(bodyId);
 
         // If multiple bodies selected, show count
         if (m_selection->selectedBodyCount() > 1) {

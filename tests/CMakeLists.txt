@@ -24,6 +24,7 @@ find_package(CURL REQUIRED)
 add_library(materializr_core STATIC
     ${CMAKE_SOURCE_DIR}/src/core/Base64.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Document.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Material.cpp
     ${CMAKE_SOURCE_DIR}/src/core/History.cpp
     ${CMAKE_SOURCE_DIR}/src/core/SelectionManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/MeshGuard.cpp
@@ -932,6 +933,12 @@ add_test(NAME test_face_centroid COMMAND test_face_centroid)
 add_executable(test_stepper_nudge test_stepper_nudge.cpp)
 target_link_libraries(test_stepper_nudge PRIVATE materializr_core gtest gtest_main)
 add_test(NAME test_stepper_nudge COMMAND test_stepper_nudge)
+
+# test_materials - body material catalogue, the pick's colour rule, mass, and
+# the .mzr round trip (unknown ids survive).
+add_executable(test_materials test_materials.cpp)
+target_link_libraries(test_materials PRIVATE materializr_core gtest gtest_main)
+add_test(NAME test_materials COMMAND test_materials)
 
 # test_project_compression - both gzip levels round-trip a project unchanged.
 add_executable(test_project_compression test_project_compression.cpp)

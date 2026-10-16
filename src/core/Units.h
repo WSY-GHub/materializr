@@ -112,6 +112,24 @@ inline std::string fmtLength(double mm)  { return detail::fmtQuantity(toDisplay(
 inline std::string fmtArea(double mm2)   { return detail::fmtQuantity(areaToDisplay(mm2), "\xC2\xB2"); }
 inline std::string fmtVolume(double mm3) { return detail::fmtQuantity(volToDisplay(mm3), "\xC2\xB3"); }
 
+// "15.3 g" / "1.24 kg", or "0.54 oz" / "2.73 lb" when lengths display in
+// inches or feet. A mass has no length unit of its own to follow, so the
+// imperial length units pick the imperial mass ones.
+inline std::string fmtMass(double grams) {
+    const LengthUnit u = currentUnit();
+    char b[64];
+    if (u == LengthUnit::In || u == LengthUnit::Ft) {
+        const double oz = grams / 28.349523125;
+        if (oz < 16.0) std::snprintf(b, sizeof b, "%.2f oz", oz);
+        else           std::snprintf(b, sizeof b, "%.2f lb", oz / 16.0);
+    } else if (grams < 1000.0) {
+        std::snprintf(b, sizeof b, grams < 10.0 ? "%.2f g" : "%.1f g", grams);
+    } else {
+        std::snprintf(b, sizeof b, "%.2f kg", grams / 1000.0);
+    }
+    return b;
+}
+
 // "(12.70, 0.00, 3.81) in" - a point or an offset, three converted numbers
 // under ONE suffix. Repeating the unit on each component reads as noise at the
 // width a history caption gets.

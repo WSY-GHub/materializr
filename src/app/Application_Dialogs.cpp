@@ -294,6 +294,14 @@ void Application::renderSettings() {
                         changed = true;
                     }
 
+                    ImGui::Spacing();
+                    ImGui::SeparatorText(materializr::tr("Materials"));
+                    if (ImGui::Checkbox(materializr::tr("Photo studio reflections"), &m_photoReflections)) {
+                        applyRenderingSettings();
+                        changed = true;
+                    }
+                    ImGui::TextWrapped("%s", materializr::tr("Metal and varnished wood reflect a photographed studio. Off: a plain drawn studio instead."));
+
 
                     ImGui::Spacing();
                     ImGui::SeparatorText(materializr::tr("Toolbar tooltips"));
@@ -6658,6 +6666,8 @@ void Application::renderPartsPickerDialog() {
                     if (s.IsNull()) continue;
                     int nid = m_document->addBody(s, m_partsPickerDoc->getBodyName(id));
                     m_document->setBodyColor(nid, m_partsPickerDoc->getBodyColor(id));
+                    m_document->setBodyMaterial(nid, m_partsPickerDoc->getBodyMaterial(id));
+                    m_document->setBodyPrint(nid, m_partsPickerDoc->getBodyPrint(id));
                     ++n;
                 } catch (...) {}
             }
@@ -6702,14 +6712,16 @@ void Application::exportBodiesToNewProject(const std::vector<int>& bodyIds) {
     if (!m_document || bodyIds.empty()) return;
     // Snapshot BEFORE opening the tab: openNewTab repoints m_document at the
     // new session, so anything read afterwards would come from the empty one.
-    struct Part { TopoDS_Shape shape; std::string name; glm::vec3 color; };
+    struct Part { TopoDS_Shape shape; std::string name; glm::vec3 color; std::string material; PrintSettings print; };
     std::vector<Part> parts;
     for (int id : bodyIds) {
         TopoDS_Shape s;
         try { s = m_document->getBody(id); } catch (...) {}
         if (s.IsNull()) continue;
         parts.push_back({s, m_document->getBodyName(id),
-                         m_document->getBodyColor(id)});
+                         m_document->getBodyColor(id),
+                         m_document->getBodyMaterial(id),
+                         m_document->getBodyPrint(id)});
     }
     if (parts.empty()) {
         showToast(materializr::tr("Those bodies have no geometry."));
@@ -6724,6 +6736,8 @@ void Application::exportBodiesToNewProject(const std::vector<int>& bodyIds) {
     for (const auto& p : parts) {
         const int nid = m_document->addBody(p.shape, p.name);
         m_document->setBodyColor(nid, p.color);
+        m_document->setBodyMaterial(nid, p.material);
+        m_document->setBodyPrint(nid, p.print);
     }
     // Name the tab after the part (single) - it is still UNSAVED, so the path
     // stays empty and Save goes through the picker.
@@ -6748,14 +6762,16 @@ void Application::sendBodiesToTab(const std::vector<int>& bodyIds, size_t tabInd
         return;
     // Snapshot BEFORE switching: switchToSession repoints m_document at the
     // target session, so anything read afterwards would come from THAT one.
-    struct Part { TopoDS_Shape shape; std::string name; glm::vec3 color; };
+    struct Part { TopoDS_Shape shape; std::string name; glm::vec3 color; std::string material; PrintSettings print; };
     std::vector<Part> parts;
     for (int id : bodyIds) {
         TopoDS_Shape s;
         try { s = m_document->getBody(id); } catch (...) {}
         if (s.IsNull()) continue;
         parts.push_back({s, m_document->getBodyName(id),
-                         m_document->getBodyColor(id)});
+                         m_document->getBodyColor(id),
+                         m_document->getBodyMaterial(id),
+                         m_document->getBodyPrint(id)});
     }
     if (parts.empty()) {
         showToast(materializr::tr("Those bodies have no geometry."));
@@ -6769,6 +6785,8 @@ void Application::sendBodiesToTab(const std::vector<int>& bodyIds, size_t tabInd
     for (const auto& p : parts) {
         const int nid = m_document->addBody(p.shape, p.name);
         m_document->setBodyColor(nid, p.color);
+        m_document->setBodyMaterial(nid, p.material);
+        m_document->setBodyPrint(nid, p.print);
         newIds.push_back(nid);
     }
     m_meshesDirty = true;

@@ -6,6 +6,7 @@
 
 #include <TopoDS_Shape.hxx>
 #include "MeshTag.h"
+#include "core/Material.h"
 
 #include <map>
 #include <unordered_map>
@@ -24,6 +25,7 @@ struct LightingParams {
     bool  headlight    = false; // key light tracks the camera
     bool  fill         = true;  // enable the soft opposing fill light
     float fillStrength = 0.35f; // contribution of the fill light when enabled
+    bool  photoReflections = true; // metals reflect the photo studio (else the drawn one)
 };
 
 class ShapeRenderer {
@@ -114,6 +116,16 @@ public:
     /// Set the color for a specific mesh.
     void setColor(int meshIndex, glm::vec3 color);
 
+    /// Set the surface finish (highlight, metalness, varnish, wood grain) for a
+    /// specific mesh - materializr::surfaceFinish() of the body's material.
+    /// The defaults are the look a body with no material has.
+    void setFinish(int meshIndex, const SurfaceFinish& finish);
+
+    /// Metal bodies reflect a cubemap of the scene (see updateReflectionProbe).
+    /// True when that probe is out of date and waiting on its rebuild
+    /// throttle: render-on-demand callers should keep drawing frames.
+    bool reflectionPending() const { return m_probePending; }
+
     /// Set the selection state for a specific mesh.
     void setSelected(int meshIndex, bool selected);
 
@@ -161,6 +173,11 @@ private:
         int bodyId = -1; // -1 = not tied to a Document body (legacy slot)
         glm::mat4 modelMatrix = glm::mat4(1.0f);
         glm::vec3 color = glm::vec3(0.7f, 0.7f, 0.7f);
+        SurfaceFinish finish;
+        // Object-space bounds of the vertices: the frame the wood grain is
+        // laid out in, so it stays put on the part through a drag preview.
+        glm::vec3 bbMin = glm::vec3(0.0f);
+        glm::vec3 bbMax = glm::vec3(0.0f);
         bool selected = false;
         bool subtractPreview = false;
         // What the vertices were built from and at what quality, so a
@@ -172,6 +189,7 @@ private:
         float angularDeflection = 0.0f;
     };
 
+    void updateReflectionProbe();
     bool compileShader(unsigned int& shader, unsigned int type, const char* source);
     bool linkProgram(unsigned int program, unsigned int vertShader, unsigned int fragShader);
     void renderMeshOutline(const MeshData& mesh, const glm::mat4& view,
@@ -216,6 +234,50 @@ private:
     int m_meshLoc_lightDir = -1;
     int m_meshLoc_fillDir = -1;
     int m_meshLoc_objectColor = -1;
+    int m_meshLoc_specStrength = -1;
+    int m_meshLoc_shininess = -1;
+    int m_meshLoc_metallic = -1;
+    int m_meshLoc_roughness = -1;
+    int m_meshLoc_clearcoat = -1;
+    int m_meshLoc_grain = -1;
+    int m_meshLoc_grainCenter = -1;
+    int m_meshLoc_grainAxis = -1;
+    int m_meshLoc_grainSide = -1;
+    int m_meshLoc_grainScale = -1;
+    int m_meshLoc_envMap = -1;
+    int m_meshLoc_hasEnv = -1;
+    int m_meshLoc_envMaxLod = -1;
+
+    // Reflection probe (updateReflectionProbe).
+    static constexpr int kProbeSize = 256;
+    static constexpr int kProbeTextureUnit = 3;
+    static constexpr double kProbeMinInterval = 0.1;  // seconds between rebuilds
+    unsigned int m_probeBgProgram = 0;
+    int m_probeLoc_invViewProj = -1;
+    int m_probeLoc_probePos = -1;
+    int m_probeLoc_gridFade = -1;
+    unsigned int m_probeTex = 0;
+    unsigned int m_probeFbo = 0;
+    unsigned int m_probeDepth = 0;
+    unsigned int m_probeVao = 0;
+    float m_probeMaxLod = 0.0f;
+    unsigned long long m_probeSig = 0;
+    double m_probeBuiltAt = 0.0;
+    bool m_probeActive = false;   // a probe exists and a metal is on screen
+    bool m_probePending = false;
+    bool m_probeFailed = false;
+
+    // The photographed studio (EnvironmentImage.h), loaded once by initialize.
+    // 0 when it failed to decode: everything falls back to the drawn studio.
+    static constexpr int kPhotoTextureUnit = 4;
+    unsigned int m_photoTex = 0;
+    int m_meshLoc_photoEnv = -1;
+    int m_meshLoc_usePhotoEnv = -1;
+    int m_probeLoc_photoEnv = -1;
+    int m_probeLoc_usePhotoEnv = -1;
+    void loadPhotoEnvironment();
+    bool usePhotoEnvironment() const { return m_photoTex && m_lighting.photoReflections; }
+
     int m_meshLoc_selected = -1;
     int m_meshLoc_ambient = -1;
     int m_meshLoc_headlight = -1;

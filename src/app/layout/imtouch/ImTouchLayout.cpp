@@ -9,6 +9,7 @@
 // code - see layout/LayoutCommon.h for the keep-in-lockstep contract.
 
 #include "core/Units.h"
+#include "core/ItemsPanelActions.h"  // setBodyMaterialAndMark / setBodyColorAndMark
 #include "app/Application.h"
 #include "app/layout/LayoutCommon.h"
 #include <algorithm>   // std::min - viewport-capped popup height
@@ -23,6 +24,7 @@
 #include "modeling/SketchTool.h"   // SketchToolMode for the select-mode gate
 #include "plugin/PluginContext.h"
 #include "ui/HistoryPanel.h"
+#include "ui/MaterialPicker.h"
 #include "ui/Toolbar.h"       // ToolAction for the tool-bar entries
 #include "ui/TouchIcons.h"
 #include "ui/TouchTheme.h"
@@ -400,13 +402,24 @@ void Application::renderImTouchLayout() {
                     markBodyDirty(id);
                     markDirty();
                 }
+                // Material + colour, the same popup as the desktop Items
+                // panel's swatch. Both bake into the render mesh.
                 if (act.swatchClicked) ImGui::OpenPopup("bodyColor");
-                glm::vec3 newCol;
-                if (colorPopup("bodyColor", "Body colour",
-                               m_document->getBodyColor(id), newCol)) {
-                    m_document->setBodyColor(id, newCol);
-                    markBodyDirty(id);   // colour bakes into the render mesh
-                    markDirty();
+                if (ImGui::BeginPopup("bodyColor")) {
+                    const auto pick = materializr::bodyAppearancePicker(
+                        m_document->getBodyMaterial(id), m_document->getBodyColor(id),
+                        materializr::uiSz(220, 0).x);
+                    auto mark = [&](int b) { markBodyDirty(b); };
+                    if (pick.materialPicked) {
+                        materializr::setBodyMaterialAndMark(*m_document, id,
+                                                            pick.materialId, mark);
+                        markDirty();
+                    }
+                    if (pick.colorPicked) {
+                        materializr::setBodyColorAndMark(*m_document, id, pick.color, mark);
+                        markDirty();
+                    }
+                    ImGui::EndPopup();
                 }
                 if (act.clicked) {
                     SelectionEntry e;

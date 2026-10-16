@@ -100,6 +100,7 @@ struct AppSettings {
     float lightAmbient   = 0.40f; // 0..1 base illumination; higher = softer shadows
     bool  lightHeadlight = false; // key light tracks the camera (no large shadows)
     bool  lightFill      = true;  // soft opposing fill light to lift dark sides
+    bool  photoReflections = true; // metals reflect a photographed studio, not the drawn one
     int   msaaSamples    = 4;     // viewport anti-aliasing: 0=off, 2, 4, 8
     int   meshQuality    = 1;     // tessellation density: 0=Low,1=Medium,2=High,3=Ultra
     float selectionLineWidth = 3.0f; // px width of highlighted edges/body outlines (1..10)

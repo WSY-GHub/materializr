@@ -214,6 +214,30 @@ void Document::setBodyColor(int id, const glm::vec3& color) {
     }
 }
 
+std::string Document::getBodyMaterial(int id) const {
+    int idx = findBodyIndex(id);
+    return idx >= 0 ? m_bodies[idx].material : std::string();
+}
+
+void Document::setBodyMaterial(int id, const std::string& materialId) {
+    int idx = findBodyIndex(id);
+    if (idx >= 0) {
+        m_bodies[idx].material = materialId;
+    }
+}
+
+materializr::PrintSettings Document::getBodyPrint(int id) const {
+    int idx = findBodyIndex(id);
+    return idx >= 0 ? m_bodies[idx].print : materializr::PrintSettings{};
+}
+
+void Document::setBodyPrint(int id, const materializr::PrintSettings& p) {
+    int idx = findBodyIndex(id);
+    if (idx >= 0) {
+        m_bodies[idx].print = p;
+    }
+}
+
 std::vector<int> Document::getAllBodyIds() const {
     std::vector<int> ids;
     ids.reserve(m_bodies.size());

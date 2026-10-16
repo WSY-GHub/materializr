@@ -5,6 +5,7 @@
 #include <memory>
 #include <limits>
 #include <glm/glm.hpp>
+#include "Material.h"
 #include <TopoDS_Shape.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
@@ -23,6 +24,12 @@ struct BodyEntry {
     TopoDS_Shape shape;
     bool visible = true;
     glm::vec3 color = glm::vec3(0.80f, 0.80f, 0.82f); // default: light grey
+    // A materializr::Material id (core/Material.h), "" = none. Drives the mass
+    // readout and the surface finish; serialized to project files - see ProjectIO.
+    std::string material;
+    // Infill and walls for the mass estimate of an FDM material (Material::fdm).
+    // Saved alongside the material id.
+    materializr::PrintSettings print;
     // -1 = at the root (not in any folder). >0 = a FolderEntry::id.
     int folderId = -1;
     // An imported tessellated mesh (e.g. STL): the shape is a sewn solid built
@@ -210,6 +217,11 @@ public:
     bool isBodySheet(int id) const;
     glm::vec3 getBodyColor(int id) const;
     void setBodyColor(int id, const glm::vec3& color);
+    // Material id ("" = none, or for an unknown body). See BodyEntry::material.
+    std::string getBodyMaterial(int id) const;
+    void setBodyMaterial(int id, const std::string& materialId);
+    materializr::PrintSettings getBodyPrint(int id) const;
+    void setBodyPrint(int id, const materializr::PrintSettings& p);
     std::vector<int> getAllBodyIds() const;
 
     // Folder management. Folders are pure UI grouping over bodies - they

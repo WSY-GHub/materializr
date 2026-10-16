@@ -428,6 +428,20 @@ ProjectSaveResult ProjectIO::save(const std::string& filePath, const Document& d
             << " " << s.kerfMm << "\n";
     }
 
+    // Body materials (core/Material.h). Optional section like BODY_SHEET; old
+    // readers skip it, old files load with no materials. Ids are single tokens.
+    // Infill % and wall count follow the id (append-only; a reader that finds
+    // them missing keeps the PrintSettings defaults).
+    std::vector<int> materialBodies;
+    for (int bid : bodyIds)
+        if (!doc.getBodyMaterial(bid).empty()) materialBodies.push_back(bid);
+    ofs << "BODY_MATERIAL_COUNT " << static_cast<int>(materialBodies.size()) << "\n";
+    for (int bid : materialBodies) {
+        const PrintSettings p = doc.getBodyPrint(bid);
+        ofs << "BODY_MATERIAL " << bid << " " << doc.getBodyMaterial(bid)
+            << " " << p.infillPercent << " " << p.walls << "\n";
+    }
+
     // --- Mates ---
     // Written after the bodies so their ids are already known on load. Field
     // order is append-only: a reader wanting a field a writer did not emit
@@ -1200,6 +1214,27 @@ ProjectLoadResult loadImpl(const std::string& filePath, Document& doc,
                 s.thicknessMm = thick;
                 s.kerfMm = kerf;
                 doc.setBodySheet(bid, s);
+            }
+        } else if (tok == "BODY_MATERIAL_COUNT") {
+            // Kept verbatim even when this build does not know the id: a file
+            // from a newer version must not lose its materials by a round trip.
+            int n = 0; iss >> n;
+            for (int i = 0; i < n; ++i) {
+                std::string mline;
+                if (!std::getline(ifs, mline)) break;
+                std::istringstream ms(mline);
+                std::string mt; ms >> mt;
+                if (mt != "BODY_MATERIAL") continue;
+                int bid = -1;
+                std::string mat;
+                ms >> bid >> mat;
+                if (bid < 0 || mat.empty()) continue;
+                doc.setBodyMaterial(bid, mat);
+                PrintSettings p;
+                int infill = 0, walls = 0;
+                if (ms >> infill) p.infillPercent = std::clamp(infill, 0, 100);
+                if (ms >> walls) p.walls = std::clamp(walls, 1, 20);
+                doc.setBodyPrint(bid, p);
             }
         } else if (tok == "CPLANE_COUNT") {
             // Construction plane block. We re-issue addPlane so the

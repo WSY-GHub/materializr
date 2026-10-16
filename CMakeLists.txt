@@ -389,6 +389,7 @@ add_executable(materializr
     src/viewport/Camera.cpp
     src/viewport/Grid.cpp
     src/viewport/ShapeRenderer.cpp
+    src/viewport/EnvironmentImage.cpp
     src/viewport/SketchRenderer.cpp
     src/viewport/ViewCube.cpp
     src/viewport/Picker.cpp
@@ -414,9 +415,9 @@ add_executable(materializr
     src/ui/StatusBar.cpp
     src/ui/ThemeManager.cpp
     src/ui/PropertiesPanel.cpp
+    src/ui/MaterialPicker.cpp
     src/ui/MeasureTool.cpp
     src/ui/VariablePanel.cpp
-    src/ui/MaterialPanel.cpp
     src/ui/DrawingView.cpp
     src/ui/VersionPanel.cpp
     src/ui/SectionPanel.cpp

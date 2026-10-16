@@ -22,6 +22,7 @@ namespace materializr {
 class PropertiesPanel {
 public:
     PropertiesPanel();
+    ~PropertiesPanel();   // out of line: VolumeCache is defined in the .cpp
 
     void setHistory(History* history);
     void setDocument(Document* doc);
@@ -144,6 +145,13 @@ private:
     // actually rebuilds (push/pull, fillet, revolve commit, etc.).
     // Stored extents are already in user-Z-up convention.
     std::map<int, std::pair<const void*, std::array<double, 3>>> m_bboxExtentCache;
+
+    // Material picker + volume / mass readout for the selected body. The
+    // volume runs on a worker (see VolumeCache in the .cpp), which keeps OCCT
+    // out of this header.
+    void renderBodyMaterial(int bodyId);
+    struct VolumeCache;
+    std::unique_ptr<VolumeCache> m_volume;
 };
 
 } // namespace materializr

@@ -5,6 +5,7 @@
 // real panel - see tests/test_body_changes.cpp's PanelDirtyContract fixture.
 
 #include "Document.h"
+#include "Material.h"
 #include "History.h"
 #include "BodyChanges.h"
 #include "../modeling/SeparateBodyOp.h"
@@ -37,6 +38,17 @@ inline void setFolderVisibleAndMark(Document& doc, int folderId, bool visible,
 inline void setBodyColorAndMark(Document& doc, int bodyId, const glm::vec3& color,
                                  const std::function<void(int)>& markBodyDirty) {
     doc.setBodyColor(bodyId, color);
+    if (markBodyDirty) markBodyDirty(bodyId);
+}
+
+// Picking a material sets the id, and repaints the body only when the material
+// brings its own colour (Material::keepsColor): PLA comes in every colour, brass
+// does not. "" clears the material and leaves the colour as it is.
+inline void setBodyMaterialAndMark(Document& doc, int bodyId, const std::string& materialId,
+                                    const std::function<void(int)>& markBodyDirty) {
+    doc.setBodyMaterial(bodyId, materialId);
+    if (const Material* m = findMaterial(materialId))
+        if (!m->keepsColor) doc.setBodyColor(bodyId, m->color);
     if (markBodyDirty) markBodyDirty(bodyId);
 }
 

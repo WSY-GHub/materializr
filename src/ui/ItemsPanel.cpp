@@ -2,12 +2,15 @@
 #include "ItemsPanel.h"
 #include "../touch_mode.h"
 #include "../core/ItemsPanelActions.h"
+#include "MaterialPicker.h"
+#include "LengthField.h"
 #include "../core/Document.h"
 #include "../core/History.h"
 #include "../core/SelectionManager.h"
 #include "../modeling/DeleteOp.h"
 #include "../modeling/SeparateBodyOp.h"
 #include <imgui.h>
+#include <cfloat>
 #include <glm/glm.hpp>
 #include <cstring>
 #include <cstdio>
@@ -25,6 +28,7 @@ namespace materializr {
 ItemsPanel::ItemsPanel() = default;
 
 void ItemsPanel::setDocument(Document* doc) {
+    if (doc != m_document) m_appearanceBodyId = -1;
     m_document = doc;
 }
 
@@ -88,6 +92,18 @@ bool ItemsPanel::renderContent() {
     if (!m_document) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", materializr::tr("No document loaded."));
         return false;
+    }
+
+    // A swatch click swaps the list for that body's appearance editor until
+    // Done. It is drawn in the panel, not a popup: an open popup holds the
+    // mouse, and the viewport must stay live to orbit round the new look.
+    if (m_appearanceBodyId >= 0) {
+        const std::vector<int> ids = m_document->getAllBodyIds();
+        if (std::find(ids.begin(), ids.end(), m_appearanceBodyId) != ids.end()) {
+            renderAppearanceEditor(m_appearanceBodyId);
+            return false;
+        }
+        m_appearanceBodyId = -1;   // undone or deleted under the editor
     }
 
     // Selected-body ids collected ONCE per frame - renderBodyRow used to
@@ -1063,17 +1079,54 @@ bool ItemsPanel::renderBodyRow(int id, int folderId) {
         ImGui::EndPopup();
     }
 
+    // The swatch opens material + colour together: what a body is made of is
+    // part of how it looks.
     ImGui::SameLine();
-    glm::vec3 col = m_document->getBodyColor(id);
-    if (ImGui::ColorEdit3("##bodycolor", &col.x,
-            ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
-            ImGuiColorEditFlags_PickerHueWheel)) {
-        setBodyColorAndMark(*m_document, id, col, m_markBodyDirty);
-        if (m_markDirty) m_markDirty();
+    const glm::vec3 col = m_document->getBodyColor(id);
+    if (ImGui::ColorButton("##bodycolor", ImVec4(col.x, col.y, col.z, 1.0f),
+                           ImGuiColorEditFlags_NoTooltip))
+        m_appearanceBodyId = id;   // the editor takes over the panel next frame
+    if (ImGui::IsItemHovered()) {
+        const Material* mat = findMaterial(m_document->getBodyMaterial(id));
+        if (mat) ImGui::SetTooltip("%s", materializr::tr(mat->name));
     }
 
     ImGui::PopID();
     return !deleted;
+}
+
+// The appearance editor in place of the list: the whole panel, so a small
+// screen gets room the old popup off a row never had, and a title naming the
+// body. Picks apply as they are made; Done (or Esc in the panel) goes back
+// to the list.
+void ItemsPanel::renderAppearanceEditor(int id) {
+    ImGui::TextColored(accentText(), "%s",
+                       materializr::trFormat("Appearance: %s",
+                                             m_document->getBodyName(id)).c_str());
+    ImGui::Separator();
+    const float footer = ImGui::GetFrameHeightWithSpacing() +
+                         ImGui::GetStyle().ItemSpacing.y;
+    if (ImGui::BeginChild("##appearanceBody", ImVec2(0.0f, -footer))) {
+        const float w = std::min(ImGui::GetContentRegionAvail().x,
+                                 ImGui::GetFontSize() * 18.0f);
+        const AppearancePick pick = bodyAppearancePicker(
+            m_document->getBodyMaterial(id), m_document->getBodyColor(id), w);
+        if (pick.materialPicked) {
+            setBodyMaterialAndMark(*m_document, id, pick.materialId, m_markBodyDirty);
+            if (m_markDirty) m_markDirty();
+        }
+        if (pick.colorPicked) {
+            setBodyColorAndMark(*m_document, id, pick.color, m_markBodyDirty);
+            if (m_markDirty) m_markDirty();
+        }
+    }
+    ImGui::EndChild();
+    ImGui::Separator();
+    // Esc only while the panel has focus - in the viewport it cancels tools.
+    const bool escHere = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+                         ImGui::IsKeyPressed(ImGuiKey_Escape);
+    if (ImGui::Button(materializr::tr("Done"), ImVec2(-FLT_MIN, 0.0f)) || escHere)
+        m_appearanceBodyId = -1;
 }
 
 } // namespace materializr

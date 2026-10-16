@@ -99,6 +99,7 @@ inline void resetFpuForOcct() {
 #include "modeling/DeleteSketchOp.h"
 #include "modeling/TransformOp.h"
 #include "core/Units.h"
+#include "core/Material.h"
 #include "core/LengthEdit.h"
 #include "modeling/FilletProbe.h"
 #include "modeling/MirrorOp.h"
@@ -1984,6 +1985,7 @@ void Application::applyRenderingSettings() {
     lp.ambient = m_lightAmbient;
     lp.headlight = m_lightHeadlight;
     lp.fill = m_lightFill;
+    lp.photoReflections = m_photoReflections;
     m_shapeRenderer->setLighting(lp);
     m_viewport->setSamples(m_msaaSamples);
     if (m_selectionHighlight) m_selectionHighlight->setLineWidth(m_selectionLineWidth);
@@ -2025,6 +2027,7 @@ AppSettings Application::currentSettings() const {
     s.lightAmbient = m_lightAmbient;
     s.lightHeadlight = m_lightHeadlight;
     s.lightFill = m_lightFill;
+    s.photoReflections = m_photoReflections;
     s.msaaSamples = m_msaaSamples;
     s.meshQuality = m_meshQuality;
     s.selectionLineWidth = m_selectionLineWidth;
@@ -2137,6 +2140,7 @@ void Application::applyAppSettings(const AppSettings& s) {
     m_lightAmbient = s.lightAmbient;
     m_lightHeadlight = s.lightHeadlight;
     m_lightFill = s.lightFill;
+    m_photoReflections = s.photoReflections;
     m_msaaSamples = s.msaaSamples;
     m_meshQuality = s.meshQuality;
     m_selectionLineWidth = s.selectionLineWidth;
@@ -3658,6 +3662,9 @@ void Application::rebuildMeshes() {
             }
             if (idx >= 0) {
                 m_shapeRenderer->setColor(idx, m_document->getBodyColor(id));
+                const materializr::SurfaceFinish fin = materializr::surfaceFinish(
+                    materializr::findMaterial(m_document->getBodyMaterial(id)));
+                m_shapeRenderer->setFinish(idx, fin);
                 // Set, not only raised: the slot keeps its flags across a per-body
                 // rebuild, so a tint raised in Subtract must drop when the mode
                 // changes or the preview commits.
@@ -3726,6 +3733,9 @@ void Application::rebuildMeshes() {
             m_meshDispatch.meshedInFrame(id, m_shapeRenderer->lastMeshMillis());
         if (idx >= 0) {
             m_shapeRenderer->setColor(idx, m_document->getBodyColor(id));
+            const materializr::SurfaceFinish fin = materializr::surfaceFinish(
+                materializr::findMaterial(m_document->getBodyMaterial(id)));
+            m_shapeRenderer->setFinish(idx, fin);
             // Set, not only raised: the slot keeps its flags across a per-body
             // rebuild, so a tint raised in Subtract must drop when the mode
             // changes or the preview commits.
@@ -5310,6 +5320,8 @@ void Application::exportBodiesAs(const std::vector<int>& bodyIds,
         if (s.IsNull()) continue;
         const int nid = scratch->addBody(s, m_document->getBodyName(id));
         scratch->setBodyColor(nid, m_document->getBodyColor(id));
+        scratch->setBodyMaterial(nid, m_document->getBodyMaterial(id));
+        scratch->setBodyPrint(nid, m_document->getBodyPrint(id));
     }
     if (scratch->getAllBodyIds().empty()) {
         showToast(materializr::tr("Nothing to export - those bodies have no geometry."));

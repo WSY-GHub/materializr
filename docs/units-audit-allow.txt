@@ -200,6 +200,8 @@ src/app/layout/imtouch/ImTouchLayout.cpp: // badge. Raw mm here read "10" after 
 src/core/Document.h: // Half-size of the rendered translucent quad in mm. Free to grow later
 src/core/Document.h: // for autoscale; 50 mm (= 100 mm square) is a reasonable default that's
 src/core/Document.h: // a render-extent (halfLength for the drawn segment in mm).
+src/core/Material.h: return volumeMm3 / 1000.0 * m.density;   // mm^3 -> cm^3
+src/core/Material.h: constexpr double kPrintLineWidthMm = 0.45;   // a 0.4 mm nozzle's wall line
 src/core/MeshParams.h: // outline, and Watson then spends 25 s+ on one at Ultra quality (0.01 mm /
 src/core/MeshParams.h: // a fan of 16 mm chords across the curve - a 0.4 mm flat dent in the STL.
 src/core/MeshParams.h: // How far a face's mesh strays from its surface, in mm: the worst gap between a

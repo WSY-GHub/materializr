@@ -13,7 +13,7 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 - count: 1
 - percent: 18
 - px/ui: 4
-- ratio: 9
+- ratio: 7
 - seconds: 4
 - unitless: 10
 
@@ -244,8 +244,6 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 | CONVERTED | src/plugins/PushPullPlugin.cpp | `if (materializr::lengthStepperRow("ppStep", &m_distance,` |
 | CONVERTED | src/plugins/SketchPlugin.cpp | `const bool dimOk = dimIsLen ? materializr::parseLength(m_dimBuf, v)` |
 | angle | src/plugins/SketchPlugin.cpp | `: materializr::parseFinite(m_dimBuf, v);` |
-| ratio | src/ui/MaterialPanel.cpp | `ImGui::SliderFloat(materializr::tr("Roughness"), &m_customRoughness, 0.0f, 1.0f);` |
-| ratio | src/ui/MaterialPanel.cpp | `ImGui::SliderFloat(materializr::tr("Metallic"), &m_customMetallic, 0.0f, 1.0f);` |
 | CONVERTED | src/ui/PropertiesPanel.cpp | `if (materializr::lengthField(materializr::trFormat("Diameter (%s)", materializr::unitSuffix()).c_str(), &dia, ` |
 | CONVERTED | src/ui/PropertiesPanel.cpp | `if (materializr::lengthField(materializr::trFormat("Radius (%s)", materializr::unitSuffix()).c_str(), &rad, Im` |
 | CONVERTED | src/ui/PropertiesPanel.cpp | `if (materializr::lengthField(materializr::trFormat("Chord (%s)", materializr::unitSuffix()).c_str(), &chord, I` |
@@ -262,13 +260,15 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 ## `mm` literals by class
 
 - CONVERTED: 1
+- READOUT-LITERAL: 1
 - allowed-by-hand: 92
-- comment: 288
+- comment: 290
 - diagnostic: 11
 - identifier/other: 9
 
 | class | file | code |
 |---|---|---|
+| READOUT-LITERAL | src/ui/PropertiesPanel.cpp | `"skins are solid (each wall is a 0.45 mm line), the inside is filled at the "` |
 | comment | src/ai/AiToolDispatcher.cpp | `// mm value formatted with up to 2 decimals, trailing zeros trimmed` |
 | allowed-by-hand | src/ai/AiToolDispatcher.cpp | `"centered at (x=%.1f, y=%.1f, z=%.1f)mm, size (width=%.1f, depth=%.1f, height=%.1f)mm",` |
 | allowed-by-hand | src/ai/AiToolDispatcher.cpp | `" at radius " + std::to_string(radius) + "mm"};` |
@@ -468,6 +468,8 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 | comment | src/core/Document.h | `// Half-size of the rendered translucent quad in mm. Free to grow later` |
 | comment | src/core/Document.h | `// for autoscale; 50 mm (= 100 mm square) is a reasonable default that's` |
 | comment | src/core/Document.h | `// a render-extent (halfLength for the drawn segment in mm).` |
+| comment | src/core/Material.h | `return volumeMm3 / 1000.0 * m.density;   // mm^3 -> cm^3` |
+| comment | src/core/Material.h | `constexpr double kPrintLineWidthMm = 0.45;   // a 0.4 mm nozzle's wall line` |
 | comment | src/core/MeshParams.h | `// outline, and Watson then spends 25 s+ on one at Ultra quality (0.01 mm /` |
 | comment | src/core/MeshParams.h | `// a fan of 16 mm chords across the curve - a 0.4 mm flat dent in the STL.` |
 | comment | src/core/MeshParams.h | `// How far a face's mesh strays from its surface, in mm: the worst gap between a` |
