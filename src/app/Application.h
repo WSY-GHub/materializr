@@ -2267,12 +2267,21 @@ private:
     PatternKind m_sketchPatternKind = PatternKind::Linear;
     int  m_sketchPatternCount = 3;
     float m_sketchPatternDistance = 5.0f;
+    // Linear: any combination of the four directions may be on at once. The
+    // horizontal reach (Count, Distance) and vertical reach (Rows, DistanceY)
+    // combine as a grid, e.g. Right + Down fills the quadrant.
+    bool  m_sketchPatternDirL = false, m_sketchPatternDirR = true;
+    bool  m_sketchPatternDirU = false, m_sketchPatternDirD = false;
+    int   m_sketchPatternRows = 3;
+    float m_sketchPatternDistanceY = 5.0f;
     float m_sketchPatternAngle = 360.0f;
     float m_sketchPatternOriginX = 0.0f;
     float m_sketchPatternOriginY = 0.0f;
     bool m_sketchPatternFocusInput = false;
     char m_sketchPatternCountBuf[16]    = "3";
     char m_sketchPatternDistanceBuf[32] = "5.0";
+    char m_sketchPatternRowsBuf[16]      = "3";
+    char m_sketchPatternDistanceYBuf[32] = "5.0";
     char m_sketchPatternAngleBuf[32]    = "360.0";
     char m_sketchPatternOXBuf[32] = "0.0";
     char m_sketchPatternOYBuf[32] = "0.0";

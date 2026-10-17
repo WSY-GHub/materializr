@@ -1414,7 +1414,7 @@ void Application::renderSketchPatternPopup() {
         ImGuiWindowFlags_AlwaysAutoResize);
 
     if (m_sketchPatternKind == PatternKind::Linear) {
-        ImGui::TextDisabled("%s", materializr::tr("Copies along the sketch +X axis."));
+        ImGui::TextDisabled("%s", materializr::tr("Pick one or more directions. Two or more (e.g. Right + Down) make a grid."));
     } else {
         ImGui::TextDisabled("%s", materializr::tr("Rotates copies around the (x, y) origin in sketch coords."));
     }
@@ -1425,48 +1425,94 @@ void Application::renderSketchPatternPopup() {
         m_sketchPatternFocusInput = false;
     }
     bool changed = false;
-    ImGui::Text("%s", materializr::tr("Copies")); ImGui::SameLine();
-    ImGui::SetNextItemWidth(80);
-    materializr::inputNumberText("##spcount", m_sketchPatternCountBuf,
-                     sizeof(m_sketchPatternCountBuf),
-                     ImGuiInputTextFlags_CharsDecimal);
+
+    const bool linear = m_sketchPatternKind == PatternKind::Linear;
+    // Each direction is an independent toggle; more than one at once combines
+    // into a grid (see updateSketchPattern).
+    auto dirToggle = [&](const char* label, bool& on) {
+        if (ImGui::Selectable(materializr::tr(label), on, 0, materializr::uiSz(60, 0))) {
+            on = !on; changed = true;
+        }
+    };
+    if (linear) {
+        dirToggle("Left", m_sketchPatternDirL); ImGui::SameLine();
+        dirToggle("Right", m_sketchPatternDirR);
+        dirToggle("Up", m_sketchPatternDirU); ImGui::SameLine();
+        dirToggle("Down", m_sketchPatternDirD);
+        ImGui::Separator();
+    }
+    const bool useH = !linear || m_sketchPatternDirL || m_sketchPatternDirR;
+    const bool useV = linear && (m_sketchPatternDirU || m_sketchPatternDirD);
+    const bool both = useH && useV;
     // Clamp: atoi has no overflow guard, so a pasted/typed huge integer
     // (e.g. "999999999") would ask PatternOp to build ~a billion instances
-    // and hang. 1000 is far beyond any hand-built parametric pattern.
-    int newCount = std::min(1000, std::max(2, std::atoi(m_sketchPatternCountBuf)));
-    if (newCount != m_sketchPatternCount) { m_sketchPatternCount = newCount; changed = true; }
+    // and hang. 1000 is far beyond any hand-built parametric pattern; a grid
+    // multiplies its two counts, so each is capped lower.
+    const int maxCount = both ? 30 : 1000;
 
-    if (m_sketchPatternKind == PatternKind::Linear) {
-        ImGui::Text("%s", materializr::tr("Spacing")); ImGui::SameLine();
+    // One count + spacing block: text box + unit + slider (+ touch field).
+    auto reach = [&](const char* countLabel, const char* countId, char* countBuf,
+                     size_t countBufSize, int& count,
+                     const char* spLabel, const char* textId, const char* sliderId,
+                     const char* touchId, char* buf, size_t bufSize, float& value) {
+        ImGui::Text("%s", materializr::tr(countLabel)); ImGui::SameLine();
+        ImGui::SetNextItemWidth(80);
+        materializr::inputNumberText(countId, countBuf, countBufSize,
+                         ImGuiInputTextFlags_CharsDecimal);
+        int newCount = std::min(maxCount, std::max(2, std::atoi(countBuf)));
+        if (newCount != count) { count = newCount; changed = true; }
+
+        ImGui::Text("%s", materializr::tr(spLabel)); ImGui::SameLine();
         ImGui::SetNextItemWidth(100);
-        materializr::inputNumberText("##spdist", m_sketchPatternDistanceBuf,
-                         sizeof(m_sketchPatternDistanceBuf),
+        materializr::inputNumberText(textId, buf, bufSize,
                          0 /* letters allowed: parseLength accepts a typed "2in" */);
         ImGui::SameLine(); ImGui::Text("%s", materializr::unitSuffix());
         // Only while typing. An idle re-parse rewrote the model from the
         // buffer's rounded text and, after a unit switch, reinterpreted the old
         // unit's digits in the new one.
-        if (materializr::lengthBufferIsActive("##spdist")) {
-            float newDist = m_sketchPatternDistance;
-            if (materializr::parseLength(m_sketchPatternDistanceBuf, newDist) &&
-                std::abs(newDist - m_sketchPatternDistance) > 1e-4f) {
-                m_sketchPatternDistance = newDist; changed = true;
+        if (materializr::lengthBufferIsActive(textId)) {
+            float newDist = value;
+            if (materializr::parseLength(buf, newDist) &&
+                std::abs(newDist - value) > 1e-4f) {
+                value = newDist; changed = true;
             }
         } else {
-            materializr::formatLengthDigits(m_sketchPatternDistanceBuf,
-                                            sizeof(m_sketchPatternDistanceBuf),
-                                            m_sketchPatternDistance);
+            materializr::formatLengthDigits(buf, bufSize, value);
         }
-        if (materializr::lengthSlider("##spdistslider", &m_sketchPatternDistance, 0.1f, 100.0f)) {
-            materializr::formatLengthDigits(m_sketchPatternDistanceBuf, sizeof(m_sketchPatternDistanceBuf), m_sketchPatternDistance);
+        if (materializr::lengthSlider(sliderId, &value, 0.1f, 100.0f)) {
+            materializr::formatLengthDigits(buf, bufSize, value);
             changed = true;
         }
         if (imTouchLayout() &&
-            materializr::amountLengthField("spDistAmt", nullptr, &m_sketchPatternDistance, /*allowSign=*/false, 0.1f, 100.0f)) {
-            materializr::formatLengthDigits(m_sketchPatternDistanceBuf, sizeof(m_sketchPatternDistanceBuf), m_sketchPatternDistance);
+            materializr::amountLengthField(touchId, nullptr, &value, /*allowSign=*/false, 0.1f, 100.0f)) {
+            materializr::formatLengthDigits(buf, bufSize, value);
             changed = true;
         }
-    } else {
+    };
+
+    if (useH)
+        reach(both ? "Columns" : "Copies", "##spcount", m_sketchPatternCountBuf,
+              sizeof(m_sketchPatternCountBuf), m_sketchPatternCount,
+              both ? "X spacing" : "Spacing", "##spdist", "##spdistslider", "spDistAmt",
+              m_sketchPatternDistanceBuf, sizeof(m_sketchPatternDistanceBuf),
+              m_sketchPatternDistance);
+    if (useV)
+        reach(both ? "Rows" : "Copies", "##sprows", m_sketchPatternRowsBuf,
+              sizeof(m_sketchPatternRowsBuf), m_sketchPatternRows,
+              both ? "Y spacing" : "Spacing", "##spdisty", "##spdistyslider", "spDistYAmt",
+              m_sketchPatternDistanceYBuf, sizeof(m_sketchPatternDistanceYBuf),
+              m_sketchPatternDistanceY);
+    if (linear && !useH && !useV)
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "%s", materializr::tr("Choose at least one direction."));
+    if (!linear) {
+        ImGui::Text("%s", materializr::tr("Copies")); ImGui::SameLine();
+        ImGui::SetNextItemWidth(80);
+        materializr::inputNumberText("##spcount", m_sketchPatternCountBuf,
+                         sizeof(m_sketchPatternCountBuf),
+                         ImGuiInputTextFlags_CharsDecimal);
+        int newCount = std::min(maxCount, std::max(2, std::atoi(m_sketchPatternCountBuf)));
+        if (newCount != m_sketchPatternCount) { m_sketchPatternCount = newCount; changed = true; }
+
         ImGui::Text("%s", materializr::tr("Sweep")); ImGui::SameLine();
         ImGui::SetNextItemWidth(100);
         materializr::inputNumberText("##spangle", m_sketchPatternAngleBuf,

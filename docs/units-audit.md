@@ -35,9 +35,9 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 | CONVERTED | src/app/Application_Dialogs.cpp | `materializr::lengthField("##mv", &m_multiMove[i]);` |
 | percent | src/app/Application_Dialogs.cpp | `if (materializr::inputNumber("##pct", &m_scalePct[i], 0.0f, 0.0f, "%.1f")) {` |
 | CONVERTED | src/app/Application_Dialogs.cpp | `(void)materializr::parseLength(m_scaleMmEdit[i].buf,` |
-| CONVERTED | src/app/Application_Dialogs.cpp | `if (materializr::parseLength(m_sketchPatternDistanceBuf, newDist) &&` |
-| CONVERTED | src/app/Application_Dialogs.cpp | `if (materializr::lengthSlider("##spdistslider", &m_sketchPatternDistance, 0.1f, 100.0f)) {` |
-| CONVERTED | src/app/Application_Dialogs.cpp | `materializr::amountLengthField("spDistAmt", nullptr, &m_sketchPatternDistance, /*allowSign=*/false, 0.1f, 100.` |
+| CONVERTED | src/app/Application_Dialogs.cpp | `if (materializr::parseLength(buf, newDist) &&` |
+| CONVERTED | src/app/Application_Dialogs.cpp | `if (materializr::lengthSlider(sliderId, &value, 0.1f, 100.0f)) {` |
+| CONVERTED | src/app/Application_Dialogs.cpp | `materializr::amountLengthField(touchId, nullptr, &value, /*allowSign=*/false, 0.1f, 100.0f)) {` |
 | angle | src/app/Application_Dialogs.cpp | `if (materializr::parseFinite(m_sketchPatternAngleBuf, newAng) &&` |
 | angle | src/app/Application_Dialogs.cpp | `if (ImGui::SliderFloat("##spangslider", &m_sketchPatternAngle,` |
 | angle | src/app/Application_Dialogs.cpp | `touchui::amountField("spAngAmt", nullptr,` |
@@ -260,7 +260,6 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 ## `mm` literals by class
 
 - CONVERTED: 1
-- READOUT-LITERAL: 1
 - allowed-by-hand: 92
 - comment: 290
 - diagnostic: 11
@@ -268,7 +267,6 @@ classifier is heuristic; rows it cannot decide are pinned in the script's OVERRI
 
 | class | file | code |
 |---|---|---|
-| READOUT-LITERAL | src/ui/PropertiesPanel.cpp | `"skins are solid (each wall is a 0.45 mm line), the inside is filled at the "` |
 | comment | src/ai/AiToolDispatcher.cpp | `// mm value formatted with up to 2 decimals, trailing zeros trimmed` |
 | allowed-by-hand | src/ai/AiToolDispatcher.cpp | `"centered at (x=%.1f, y=%.1f, z=%.1f)mm, size (width=%.1f, depth=%.1f, height=%.1f)mm",` |
 | allowed-by-hand | src/ai/AiToolDispatcher.cpp | `" at radius " + std::to_string(radius) + "mm"};` |

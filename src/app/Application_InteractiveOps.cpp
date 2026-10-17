@@ -2277,11 +2277,17 @@ void Application::beginSketchPattern(PatternKind kind) {
     m_sketchPatternKind = kind;
     m_sketchPatternCount    = 3;
     m_sketchPatternDistance = 5.0f;
+    m_sketchPatternDirL = m_sketchPatternDirU = m_sketchPatternDirD = false;
+    m_sketchPatternDirR = true;
+    m_sketchPatternRows     = 3;
+    m_sketchPatternDistanceY = 5.0f;
     m_sketchPatternAngle    = 360.0f;
     m_sketchPatternOriginX  = 0.0f;
     m_sketchPatternOriginY  = 0.0f;
     std::snprintf(m_sketchPatternCountBuf,    sizeof(m_sketchPatternCountBuf),    "%d", m_sketchPatternCount);
     materializr::formatLengthDigits(m_sketchPatternDistanceBuf, sizeof(m_sketchPatternDistanceBuf), m_sketchPatternDistance);
+    std::snprintf(m_sketchPatternRowsBuf, sizeof(m_sketchPatternRowsBuf), "%d", m_sketchPatternRows);
+    materializr::formatLengthDigits(m_sketchPatternDistanceYBuf, sizeof(m_sketchPatternDistanceYBuf), m_sketchPatternDistanceY);
     std::snprintf(m_sketchPatternAngleBuf,    sizeof(m_sketchPatternAngleBuf),    "%.1f", m_sketchPatternAngle);
     std::snprintf(m_sketchPatternOXBuf, sizeof(m_sketchPatternOXBuf), "%.2f", m_sketchPatternOriginX);
     std::snprintf(m_sketchPatternOYBuf, sizeof(m_sketchPatternOYBuf), "%.2f", m_sketchPatternOriginY);
@@ -2356,7 +2362,36 @@ void Application::updateSketchPattern() {
     // current parameters. This is how every preview frame stays clean -
     // no leftover copies from earlier preview iterations.
     *m_activeSketch = *m_sketchPatternBefore;
-    if (m_sketchPatternCount < 2 || m_sketchPatternPts.empty()) return;
+    // Linear: every copy is an offset from the original. Horizontal steps are
+    // 0 plus +i (Right) and -i (Left); vertical steps likewise (Up = +Y).
+    // The offsets are their cross product minus the origin, so one direction
+    // is a line of copies and two or more make a grid.
+    std::vector<glm::vec2> offsets;
+    if (m_sketchPatternKind == PatternKind::Linear) {
+        const bool both = (m_sketchPatternDirL || m_sketchPatternDirR) &&
+                          (m_sketchPatternDirU || m_sketchPatternDirD);
+        const int cap = both ? 30 : 1000;  // bound the grid's copy count
+        const int hn = std::min(cap, m_sketchPatternCount) - 1;
+        const int vn = std::min(cap, m_sketchPatternRows) - 1;
+        std::vector<int> hs{0}, vs{0};
+        for (int i = 1; i <= hn; ++i) {
+            if (m_sketchPatternDirR) hs.push_back(i);
+            if (m_sketchPatternDirL) hs.push_back(-i);
+        }
+        for (int j = 1; j <= vn; ++j) {
+            if (m_sketchPatternDirU) vs.push_back(j);
+            if (m_sketchPatternDirD) vs.push_back(-j);
+        }
+        for (int v : vs)
+            for (int h : hs)
+                if (h != 0 || v != 0)
+                    offsets.emplace_back(m_sketchPatternDistance * h,
+                                         m_sketchPatternDistanceY * v);
+        if (offsets.empty()) return;
+    } else if (m_sketchPatternCount < 2) {
+        return;
+    }
+    if (m_sketchPatternPts.empty()) return;
 
     // Resolve a circle-or-arc id (SketchPoint::onCurveId's namespace covers
     // both) to its centre + radius, so a patterned copy of a point riding a
@@ -2377,11 +2412,45 @@ void Application::updateSketchPattern() {
         return false;
     };
 
-    for (int step = 1; step < m_sketchPatternCount; ++step) {
+    const int steps = (m_sketchPatternKind == PatternKind::Linear)
+                          ? int(offsets.size()) + 1 : m_sketchPatternCount;
+    // Region building connects lines only through SHARED point ids, so a
+    // copy whose line endpoint lands on an existing endpoint (a tiled mesh,
+    // spokes meeting at a hub) must reuse that point, not add a coincident
+    // twin: twins leave every joint open and the grid never closes into a
+    // region. Spatial hash so a big grid doesn't go quadratic.
+    constexpr float kWeldTol = 1e-2f; // same as the region builder's on-line tolerance
+    std::unordered_map<long long, std::vector<int>> pointGrid;
+    auto cellOf = [&](glm::vec2 q, int dx, int dy) {
+        return (static_cast<long long>(std::floor(q.x / kWeldTol)) + dx) * 4000003LL +
+               (static_cast<long long>(std::floor(q.y / kWeldTol)) + dy);
+    };
+    for (const auto& pt : m_activeSketch->getPoints())
+        pointGrid[cellOf(pt.pos, 0, 0)].push_back(pt.id);
+    auto findWeld = [&](glm::vec2 q) -> int {
+        for (int dx = -1; dx <= 1; ++dx)
+            for (int dy = -1; dy <= 1; ++dy) {
+                auto it = pointGrid.find(cellOf(q, dx, dy));
+                if (it == pointGrid.end()) continue;
+                for (int id : it->second) {
+                    const auto* c = m_activeSketch->getPoint(id);
+                    if (c && glm::length(c->pos - q) < kWeldTol) return id;
+                }
+            }
+        return -1;
+    };
+    std::set<int> lineEndPts;
+    for (const auto& l : m_activeSketch->getLines())
+        if (m_sketchPatternLines.count(l.id)) { lineEndPts.insert(l.startPointId); lineEndPts.insert(l.endPointId); }
+    std::set<std::pair<int,int>> lineKeys;
+    for (const auto& l : m_activeSketch->getLines())
+        lineKeys.insert(std::minmax(l.startPointId, l.endPointId));
+
+    for (int step = 1; step < steps; ++step) {
         std::unordered_map<int,int> remap;
         auto xform = [&](glm::vec2 p) -> glm::vec2 {
             if (m_sketchPatternKind == PatternKind::Linear) {
-                return p + glm::vec2(m_sketchPatternDistance * step, 0.0f);
+                return p + offsets[step - 1];
             }
             // Double precision throughout: a spoke/rib pattern often has its
             // endpoints anchored to a shared concentric ring (onCurveId), and
@@ -2416,7 +2485,12 @@ void Application::updateSketchPattern() {
                     if (d > 1e-9) newPos = center + glm::vec2(v / float(d)) * float(radius);
                 }
             }
+            if (p->onCurveId < 0 && lineEndPts.count(oldId)) {
+                const int weld = findWeld(newPos);
+                if (weld >= 0) { remap[oldId] = weld; continue; }
+            }
             const int newId = m_activeSketch->addPoint(newPos);
+            pointGrid[cellOf(newPos, 0, 0)].push_back(newId);
             if (p->onCurveId >= 0) m_activeSketch->setPointOnCurve(newId, p->onCurveId);
             remap[oldId] = newId;
         }
@@ -2425,7 +2499,9 @@ void Application::updateSketchPattern() {
                 if (l.id != lid) continue;
                 auto sIt = remap.find(l.startPointId);
                 auto eIt = remap.find(l.endPointId);
-                if (sIt != remap.end() && eIt != remap.end())
+                if (sIt != remap.end() && eIt != remap.end() &&
+                    sIt->second != eIt->second &&
+                    lineKeys.insert(std::minmax(sIt->second, eIt->second)).second)
                     m_activeSketch->addLine(sIt->second, eIt->second);
                 break;
             }

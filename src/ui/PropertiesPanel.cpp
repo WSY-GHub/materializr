@@ -288,10 +288,11 @@ void PropertiesPanel::renderBodyMaterial(int bodyId) {
                                                 m_document->getBodyPrint(bodyId));
         ImGui::TextUnformatted(materializr::trFormat("Printed mass: ~%s", materializr::fmtMass(printed)).c_str());
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", materializr::tr(
+            ImGui::SetTooltip("%s", materializr::trFormat(
                 "Estimated the way a slicer counts it: the walls and the top and bottom "
-                "skins are solid (each wall is a 0.45 mm line), the inside is filled at the "
-                "infill percentage. Supports, brim and purge are not included."));
+                "skins are solid (each wall is a %s line), the inside is filled at the "
+                "infill percentage. Supports, brim and purge are not included.",
+                materializr::fmtLength(kPrintLineWidthMm)).c_str());
         ImGui::TextDisabled("%s", materializr::trFormat("Solid: %s", materializr::fmtMass(solidGrams)).c_str());
     } else {
         ImGui::TextUnformatted(materializr::trFormat("Mass: %s", materializr::fmtMass(solidGrams)).c_str());
