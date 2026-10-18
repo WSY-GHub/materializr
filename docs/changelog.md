@@ -5,6 +5,41 @@ All notable changes to Materializr are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-17
+
+Materials and grids: give each body a real material with a mass and a finish,
+and pattern sketches into grids.
+
+### Added
+
+- **Materials.** Each body can carry a material, picked from the colour swatch
+  in Items or the Properties panel. The list covers common 3D printing
+  plastics (PLA, PETG, ABS, ASA, TPU, nylon and more), metals, wood and a few
+  others. Plastics keep the body's colour; metals and wood repaint it. The
+  material is saved with the project.
+- **Volume and mass in Properties.** For printing plastics there is also an
+  estimated printed mass from the infill percentage and wall count, counted
+  the way a slicer does.
+- **Material finishes in the viewport.** Metals reflect a photographed studio
+  and wood shows a grain under a satin finish. Settings ▸ Appearance ▸
+  Materials turns the studio reflections off.
+- **Grid sketch patterns.** Linear Pattern can now copy left, right, up and/or
+  down, each with its own count and spacing. Two or more directions make a
+  grid, and all four centre it on the original. Directions follow the screen,
+  whichever way the sketch faces.
+
+### Changed
+
+- The appearance editor opens in place of the Items list instead of a popup,
+  so the viewport stays usable while it is open.
+
+### Fixed
+
+- **Tiled sketch patterns close into regions.** A copy whose corner lands on
+  a neighbour's now shares that point, so every cell of a tiled pattern can
+  be picked for Push/Pull or Extrude. Before, a tiled mesh formed no regions
+  at all.
+
 ## [1.7.3] - 2026-10-10
 
 A smoothness release: fewer freezes, a friendlier touch interface, and a new
