@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: Materializr.Materializr
-PackageVersion: 1.7.3
+PackageVersion: 1.7.4
 PackageLocale: en-US
 Publisher: Materializr
 PublisherUrl: https://github.com/materializr-cad
@@ -33,21 +33,17 @@ Tags:
 - opencascade
 - svg
 ReleaseNotes: |-
-  Materializr 1.7.3
-  A smoothness release: fewer freezes, a friendlier touch interface, and a new windowing layer (SDL3) underneath on every platform.
+  Materializr 1.7.4
+  Materials and grids: give each body a real material with a mass and a finish, and pattern sketches into grids.
   Added
-  - Drag and drop: drop a project file on the window to open it in its own tab, or drop STEP, IGES, BREP, SVG, DXF, STL and image files to import them
-  - Deleting a sketch can be undone
+  - Materials: give each body a 3D printing plastic (PLA, PETG, ABS, ASA, TPU, nylon and more), a metal, wood or another material, saved with the project
+  - Volume and mass in Properties, plus an estimated printed mass from infill and wall count for printing plastics
+  - Material finishes in the viewport: metals reflect a photographed studio, wood shows a grain (Settings > Appearance > Materials turns the reflections off)
+  - Grid sketch patterns: Linear Pattern copies left, right, up and/or down with its own count and spacing per direction; two or more directions make a grid
   Changed
-  - Opening a project shows a progress bar instead of locking up the window
-  - Smoother window resizing
+  - The appearance editor opens in place of the Items list, so the viewport stays usable while it is open
   Fixed
-  - Push/Pull on complex sketches no longer freezes, and a large cut that took over five minutes now takes about a second and gives the correct result
-  - The first click in a sketch no longer freezes the app
-  - Extrude refuses a near-zero distance instead of building a degenerate solid, and slow Extrude drags no longer stall
-  - STL export no longer produces cracked meshes where bodies touch or on extruded splines
-  - Sketch Offset no longer leaves tiny slivers at near-tangent junctions
-  - Edges hidden behind a nearer face are no longer picked
-ReleaseNotesUrl: https://github.com/materializr-cad/materializr/releases/tag/v1.7.3
+  - Every cell of a tiled sketch pattern now closes into a region that Push/Pull and Extrude can pick
+ReleaseNotesUrl: https://github.com/materializr-cad/materializr/releases/tag/v1.7.4
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0
