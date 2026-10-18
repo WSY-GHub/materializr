@@ -2274,6 +2274,11 @@ private:
     bool  m_sketchPatternDirU = false, m_sketchPatternDirD = false;
     int   m_sketchPatternRows = 3;
     float m_sketchPatternDistanceY = 5.0f;
+    // The directions are as seen on screen: the sketch axis (+-X or +-Y)
+    // pointing screen-right / screen-up when the pattern began. A sketch
+    // viewed from behind or turned 90 degrees still copies Right to the right.
+    glm::vec2 m_sketchPatternScreenR{1.0f, 0.0f};
+    glm::vec2 m_sketchPatternScreenU{0.0f, 1.0f};
     float m_sketchPatternAngle = 360.0f;
     float m_sketchPatternOriginX = 0.0f;
     float m_sketchPatternOriginY = 0.0f;

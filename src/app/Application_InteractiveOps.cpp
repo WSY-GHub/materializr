@@ -2294,6 +2294,33 @@ void Application::beginSketchPattern(PatternKind kind) {
     m_sketchPatternFocusInput = true;
     m_sketchPatternActive = true;
 
+    // Left / Right / Up / Down mean the screen, not the sketch axes: the XY
+    // sketch opens with +X pointing screen-left, so "Right" used to copy to
+    // the left. Project the camera's right and up onto the sketch plane
+    // (same basis as seedUprightPlacementAngle) and snap to +-X / +-Y so the
+    // grid stays square to the sketch. Up only takes its sign from the view,
+    // so the two can never land on the same axis.
+    m_sketchPatternScreenR = glm::vec2(1.0f, 0.0f);
+    m_sketchPatternScreenU = glm::vec2(0.0f, 1.0f);
+    if (m_viewport) {
+        const gp_Ax3& ax = m_activeSketch->getPlane().Position();
+        glm::vec3 xd(ax.XDirection().X(), ax.XDirection().Y(), ax.XDirection().Z());
+        glm::vec3 yd(ax.YDirection().X(), ax.YDirection().Y(), ax.YDirection().Z());
+        const Camera& cam = m_viewport->getCamera();
+        glm::vec3 fwd = glm::normalize(cam.getTarget() - cam.getPosition());
+        glm::vec3 right = glm::normalize(glm::cross(fwd, cam.getUp()));
+        glm::vec3 up = glm::cross(right, fwd);
+        glm::vec2 r(glm::dot(right, xd), glm::dot(right, yd));
+        glm::vec2 u(glm::dot(up, xd), glm::dot(up, yd));
+        if (glm::length(r) > 1e-4f) {
+            m_sketchPatternScreenR = std::abs(r.x) >= std::abs(r.y)
+                ? glm::vec2(r.x < 0.0f ? -1.0f : 1.0f, 0.0f)
+                : glm::vec2(0.0f, r.y < 0.0f ? -1.0f : 1.0f);
+            glm::vec2 perp(-m_sketchPatternScreenR.y, m_sketchPatternScreenR.x);
+            m_sketchPatternScreenU = glm::dot(perp, u) < 0.0f ? -perp : perp;
+        }
+    }
+
     // Capture the selection model NOW (before previewing). On each preview
     // frame we restore from `before` and re-transform these ids; if we
     // re-read the selection from SketchTool after restoring, ids would
@@ -2363,9 +2390,10 @@ void Application::updateSketchPattern() {
     // no leftover copies from earlier preview iterations.
     *m_activeSketch = *m_sketchPatternBefore;
     // Linear: every copy is an offset from the original. Horizontal steps are
-    // 0 plus +i (Right) and -i (Left); vertical steps likewise (Up = +Y).
+    // 0 plus +i (Right) and -i (Left); vertical steps likewise (+j is Up).
     // The offsets are their cross product minus the origin, so one direction
-    // is a line of copies and two or more make a grid.
+    // is a line of copies and two or more make a grid. Each step runs along
+    // the sketch axis that looks right / up on screen (beginSketchPattern).
     std::vector<glm::vec2> offsets;
     if (m_sketchPatternKind == PatternKind::Linear) {
         const bool both = (m_sketchPatternDirL || m_sketchPatternDirR) &&
@@ -2385,8 +2413,8 @@ void Application::updateSketchPattern() {
         for (int v : vs)
             for (int h : hs)
                 if (h != 0 || v != 0)
-                    offsets.emplace_back(m_sketchPatternDistance * h,
-                                         m_sketchPatternDistanceY * v);
+                    offsets.push_back(m_sketchPatternScreenR * (m_sketchPatternDistance * h) +
+                                      m_sketchPatternScreenU * (m_sketchPatternDistanceY * v));
         if (offsets.empty()) return;
     } else if (m_sketchPatternCount < 2) {
         return;

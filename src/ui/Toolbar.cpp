@@ -213,7 +213,7 @@ std::vector<Toolbar::RailTool> Toolbar::railTools() const {
         add(MZ_ICON_MIRROR,  "Mirror",   ToolAction::SketchMirror, false,
             "Mirror selected elements across a sketch line you'll pick next.");
         add(MZ_ICON_PATTERN_LINEAR,   "Linear",   ToolAction::SketchLinearPattern, false,
-            "Linear pattern: copy the selected sketch elements N times along the sketch X axis.");
+            "Linear pattern: copy the selected sketch elements in a row or a grid, left, right, up and/or down.");
         add(MZ_ICON_PATTERN_CIRCULAR, "Circular", ToolAction::SketchRadialPattern, false,
             "Circular pattern: copy the selected sketch elements around an origin you specify.");
         // Live inference-level cycle (Full → Reduced → Off → Max) - the label
@@ -790,7 +790,7 @@ ToolAction Toolbar::renderSketchTools() {
     if (ImGui::Button(materializr::tr("Mirror"), ImVec2(-1, bh(28)))) action = ToolAction::SketchMirror;
     tip(materializr::tr("Mirror selected elements across a sketch line you'll pick next."));
     if (ImGui::Button(materializr::tr("Linear Pattern"), ImVec2(-1, bh(28)))) action = ToolAction::SketchLinearPattern;
-    tip(materializr::tr("Copy the selected sketch elements N times along the sketch X axis."));
+    tip(materializr::tr("Copy the selected sketch elements in a row or a grid: left, right, up and/or down."));
     if (ImGui::Button(materializr::tr("Circular Pattern"), ImVec2(-1, bh(28)))) action = ToolAction::SketchRadialPattern;
     tip(materializr::tr("Copy the selected sketch elements around an origin you specify."));
 

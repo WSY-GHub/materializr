@@ -1441,7 +1441,8 @@ void Application::renderSketchPatternPopup() {
         dirToggle("Down", m_sketchPatternDirD);
         ImGui::Separator();
     }
-    const bool useH = !linear || m_sketchPatternDirL || m_sketchPatternDirR;
+    // Circular has its own Copies + Sweep block below; neither reach applies.
+    const bool useH = linear && (m_sketchPatternDirL || m_sketchPatternDirR);
     const bool useV = linear && (m_sketchPatternDirU || m_sketchPatternDirD);
     const bool both = useH && useV;
     // Clamp: atoi has no overflow guard, so a pasted/typed huge integer
