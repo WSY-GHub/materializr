@@ -14,26 +14,26 @@ asking for this actually are.
 """
 import os, sys
 
-LANGS = ["es", "pt", "fr", "de", "it"]
+LANGS = ["es", "pt", "fr", "de", "it", "ch"]
 LANG_NATIVE  = {"en":"English", "es":"Español", "pt":"Português",
-                "fr":"Français", "de":"Deutsch", "it":"Italiano"}
+                "fr":"Français", "de":"Deutsch", "it":"Italiano", "ch":"简体中文"}
 LANG_ENGLISH = {"en":"English", "es":"Spanish", "pt":"Portuguese",
-                "fr":"French", "de":"German", "it":"Italian"}
+                "fr":"French", "de":"German", "it":"Italian", "ch":"Chinese"}
 
-def E(en, es, pt, fr, de, it):
+def E(en, es, pt, fr, de, it, ch=""):
     return (en, {"es":es, "pt":pt, "fr":fr, "de":de, "it":it})
 
 CAT = [
     # ---- Tools (the rail catalogue: "identifying things in the app") -------
-    E("Select",             "Seleccionar","Selecionar","Sélectionner","Auswählen","Seleziona"),
+    E("Select",             "Seleccionar","Selecionar","Sélectionner","Auswählen","Seleziona","选择"),
     # ---- Display units (Settings > Units) ----------------------------------
-    E("Units",              "Unidades","Unidades","Unités","Einheiten","Unità"),
-    E("Display unit",       "Unidad de visualización","Unidade de exibição","Unité d'affichage","Anzeigeeinheit","Unità di visualizzazione"),
-    E("Millimetres",        "Milímetros","Milímetros","Millimètres","Millimeter","Millimetri"),
-    E("Centimetres",        "Centímetros","Centímetros","Centimètres","Zentimeter","Centimetri"),
-    E("Metres",             "Metros","Metros","Mètres","Meter","Metri"),
-    E("Inches",             "Pulgadas","Polegadas","Pouces","Zoll","Pollici"),
-    E("Feet",               "Pies","Pés","Pieds","Fuß","Piedi"),
+    E("Units",              "Unidades","Unidades","Unités","Einheiten","Unità","单位"),
+    E("Display unit",       "Unidad de visualización","Unidade de exibição","Unité d'affichage","Anzeigeeinheit","Unità di visualizzazione","显示单位"),
+    E("Millimetres",        "Milímetros","Milímetros","Millimètres","Millimeter","Millimetri","毫米"),
+    E("Centimetres",        "Centímetros","Centímetros","Centimètres","Zentimeter","Centimetri","厘米"),
+    E("Metres",             "Metros","Metros","Mètres","Meter","Metri","米"),
+    E("Inches",             "Pulgadas","Polegadas","Pouces","Zoll","Pollici","英寸"),
+    E("Feet",               "Pies","Pés","Pieds","Fuß","Piedi","英尺"),
     E("A bare number is in the display unit; add a unit to override it, e.g. 2in or 50mm.",
       "Un número sin unidad está en la unidad de visualización; añade una unidad para anularla, p. ej. 2in o 50mm.",
       "Um número sem unidade está na unidade de exibição; adicione uma unidade para substituí-la, p. ex. 2in ou 50mm.",
@@ -46,11 +46,11 @@ CAT = [
       "Unité de chaque longueur affichée et saisie. La géométrie reste stockée en millimètres ; une valeur saisie peut aussi porter sa propre unité, p. ex. 2in ou 50mm.",
       "Einheit für jede angezeigte und eingegebene Länge. Die Geometrie wird unabhängig davon in Millimetern gespeichert; ein eingegebener Wert kann auch seine eigene Einheit tragen, z. B. 2in oder 50mm.",
       "Unità per ogni lunghezza visualizzata e digitata. La geometria è comunque salvata in millimetri; un valore digitato può anche indicare la propria unità, ad es. 2in o 50mm."),
-    E("Sketch",             "Boceto","Esboço","Esquisse","Skizze","Schizzo"),
-    E("Sketch on Face",     "Boceto en cara","Esboço na face","Esquisse sur face","Skizze auf Fläche","Schizzo su faccia"),
-    E("Line",               "Línea","Linha","Ligne","Linie","Linea"),
-    E("Circle",             "Círculo","Círculo","Cercle","Kreis","Cerchio"),
-    E("Rectangle",          "Rectángulo","Retângulo","Rectangle","Rechteck","Rettangolo"),
+    E("Sketch",             "Boceto","Esboço","Esquisse","Skizze","Schizzo", "草图"),
+    E("Sketch on Face",     "Boceto en cara","Esboço na face","Esquisse sur face","Skizze auf Fläche","Schizzo su faccia""在面上草图"),
+    E("Line",               "Línea","Linha","Ligne","Linie","Linea""直线"),
+    E("Circle",             "Círculo","Círculo","Cercle","Kreis","Cerchio", "圆"),
+    E("Rectangle",          "Rectángulo","Retângulo","Rectangle","Rechteck","Rettangolo", "矩形"),
     E("Extrude",            "Extruir","Extrudar","Extruder","Extrudieren","Estrudi"),
     E("Extrude From",       "Extruir desde","Extrudar a partir de","Extruder depuis","Extrudieren ab","Estrudi da"),
     E("Push / Pull",        "Empujar / Tirar","Empurrar / Puxar","Pousser / Tirer","Ziehen / Drücken","Spingi / Tira"),
