@@ -16,6 +16,7 @@
 #include <gp_Pnt.hxx>
 #include <gp_Dir.hxx>
 #include <Standard_Failure.hxx>
+#include <Standard_ErrorHandler.hxx> // OCC_CATCH_SIGNALS
 
 #include <zlib.h>
 #include <cstdio>
@@ -212,6 +213,12 @@ ProjectSaveResult ProjectIO::save(const std::string& filePath, const Document& d
     // whole save so Ctrl+S / autosave reports a graceful error instead of
     // aborting the process and losing the document - mirrors load().
     try {
+    // A face whose surface handle is null (a failed GTransform/NurbsConvert can
+    // leave one) makes BinTools_SurfaceSet::WriteSurface dereference null: a
+    // SIGSEGV, not a C++ exception, which killed the app straight after a scale
+    // commit via the recovery snapshot (Steve, 2026-10-18). Arming the signal
+    // translation turns it into a Standard_Failure the catch below reports.
+    OCC_CATCH_SIGNALS
     // Build the entire file content in memory first (binary-safe stringstream
     // so writeBodyBlockV3's raw bytes pass through unmodified), then gzip-
     // deflate the result and write it to disk as one binary blob. Lets the

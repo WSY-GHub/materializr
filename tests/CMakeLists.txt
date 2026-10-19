@@ -923,6 +923,12 @@ add_executable(test_batch_transform_builder test_batch_transform_builder.cpp)
 target_link_libraries(test_batch_transform_builder PRIVATE materializr_core gtest gtest_main)
 add_test(NAME test_batch_transform_builder COMMAND test_batch_transform_builder)
 
+# test_scale_meshed_body - scaling an on-screen (meshed) body leaves no null
+# surfaces behind, so the save right after the commit no longer segfaults.
+add_executable(test_scale_meshed_body test_scale_meshed_body.cpp)
+target_link_libraries(test_scale_meshed_body PRIVATE materializr_core gtest gtest_main)
+add_test(NAME test_scale_meshed_body COMMAND test_scale_meshed_body)
+
 # test_face_centroid - the face-centroid snap (the green centre marker) follows
 # the sketch when the sketch plane is moved or rotated.
 add_executable(test_face_centroid test_face_centroid.cpp)

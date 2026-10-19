@@ -1,10 +1,11 @@
 #include "BatchTransformOp.h"
 #include "Mate.h"
+#include "MeshFreeGTransform.h"
 
-#include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_ModifyShape.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <Standard_ErrorHandler.hxx> // OCC_CATCH_SIGNALS
+#include <cmath>
 #include <memory>
 #include <cstdio>
 #include <cstdlib>
@@ -52,8 +53,36 @@ bool BatchTransformOp::execute(Document& doc) {
         //
         // So only a genuinely affine transform (non-uniform scale) goes the
         // GTransform route, where the conversion is actually required.
-        const bool rigid = (m_gtrsf.Form() != gp_Other);
-        const gp_Trsf rigidTrsf = rigid ? m_gtrsf.Trsf() : gp_Trsf();
+        //
+        // A uniform scale is no exception: the gizmo hands it over as a
+        // SetVectorialPart diagonal, which reads back as gp_Other, yet k*I plus
+        // a translation is an exact gp_Trsf. Without this it took the
+        // GTransform route and was NURBS-converted for nothing.
+        bool rigid = (m_gtrsf.Form() != gp_Other);
+        gp_Trsf rigidTrsf = rigid ? m_gtrsf.Trsf() : gp_Trsf();
+        if (!rigid) {
+            const gp_Mat& v = m_gtrsf.VectorialPart();
+            const double k = v(1, 1);
+            bool uniform = k > 0.0;
+            for (int r = 1; r <= 3 && uniform; ++r)
+                for (int c = 1; c <= 3 && uniform; ++c)
+                    uniform = std::abs(v(r, c) - (r == c ? k : 0.0)) < 1e-9;
+            if (uniform) {
+                const gp_XYZ& t = m_gtrsf.TranslationPart();
+                rigidTrsf.SetValues(k, 0, 0, t.X(),
+                                    0, k, 0, t.Y(),
+                                    0, 0, k, t.Z());
+                rigid = true;
+            }
+        }
+        // A body that fails must not leave the ones before it transformed.
+        auto revert = [&]() {
+            for (const auto& [rid, shp] : m_previousShapes) doc.updateBody(rid, shp);
+            for (const auto& [rid, map] : m_prevFaceIds)
+                if (!map.empty()) doc.setBodyFaceIds(rid, map);
+            m_previousShapes.clear();
+            m_prevFaceIds.clear();
+        };
         for (int id : m_bodyIds) {
             TopoDS_Shape before;
             try { before = doc.getBody(id); } catch (...) { continue; }
@@ -64,20 +93,23 @@ bool BatchTransformOp::execute(Document& doc) {
             materializr::topo::FaceIdMap inMap;
             if (const auto* im = doc.bodyFaceIds(id)) inMap = *im;
 
-            std::unique_ptr<BRepBuilderAPI_Transform>  rtf;
-            std::unique_ptr<BRepBuilderAPI_GTransform> gtf;
-            BRepBuilderAPI_ModifyShape* tf = nullptr;
+            // GTransform on a mesh-free copy: on a meshed body (every body on
+            // screen) the plain builder leaves null surfaces that crash the
+            // next save - see MeshFreeGTransform.h.
+            std::unique_ptr<BRepBuilderAPI_Transform>        rtf;
+            std::unique_ptr<materializr::MeshFreeGTransform> gtf;
             if (rigid) {
                 rtf = std::make_unique<BRepBuilderAPI_Transform>(
                     before, rigidTrsf, /*copy=*/true);
-                tf = rtf.get();
+                if (!rtf->IsDone() || rtf->Shape().IsNull()) { revert(); return false; }
             } else {
-                gtf = std::make_unique<BRepBuilderAPI_GTransform>(
-                    before, m_gtrsf, /*copy=*/true);
-                tf = gtf.get();
+                gtf = std::make_unique<materializr::MeshFreeGTransform>(before, m_gtrsf);
+                if (!gtf->IsDone()) { revert(); return false; }
             }
-            if (!tf->IsDone() || tf->Shape().IsNull()) return false;
-            TopoDS_Shape after = tf->Shape();
+            auto modified = [&](const TopoDS_Shape& s) {
+                return rtf ? rtf->ModifiedShape(s) : gtf->ModifiedShape(s);
+            };
+            TopoDS_Shape after = rtf ? rtf->Shape() : gtf->Shape();
 
             m_previousShapes.push_back({id, before});
             m_prevFaceIds[id] = inMap;
@@ -87,7 +119,7 @@ bool BatchTransformOp::execute(Document& doc) {
                 materializr::topo::FaceIdMap moved;
                 for (const auto& e : inMap) {
                     try {
-                        TopoDS_Shape nf = tf->ModifiedShape(e.face);
+                        TopoDS_Shape nf = modified(e.face);
                         if (!nf.IsNull()) moved.push_back({nf, e.ids});
                     } catch (...) {}
                 }

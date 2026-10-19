@@ -3,8 +3,8 @@
 #include "TransformOp.h"
 #include "Mate.h"
 #include "Sketch.h"
+#include "MeshFreeGTransform.h"
 #include <BRepBuilderAPI_Transform.hxx>
-#include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_ModifyShape.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_GTrsf.hxx>
@@ -133,7 +133,7 @@ bool TransformOp::execute(Document& doc) {
         // (the builder maps each input face to its moved twin). Used by every
         // build path below - without it a transform severs the ancestry chain
         // a downstream fillet/chamfer resolves its edges through.
-        auto carryFaceIds = [&](BRepBuilderAPI_ModifyShape& tf) {
+        auto carryFaceIds = [&](const auto& tf) {
             if (m_prevFaceIds.empty()) return;
             materializr::topo::FaceIdMap moved;
             for (auto& e : m_prevFaceIds) {
@@ -162,14 +162,20 @@ bool TransformOp::execute(Document& doc) {
 
         // Non-uniform scale needs a general transform (gp_Trsf can't); scale each
         // axis about the centre with gp_GTrsf (translation keeps the centre fixed).
-        if (m_type == TransformType::Scale && m_nonUniform) {
+        // The Scale panel and gizmo always arrive here through setScaleXYZ,
+        // Uniform ticked or not. Equal factors are an exact gp_Trsf scale: the
+        // gp_Trsf branch below keeps analytic surfaces and skips the NURBS
+        // rebuild entirely.
+        const bool scaleXYZ = (m_type == TransformType::Scale && m_nonUniform);
+        const bool uniformXYZ = scaleXYZ &&
+            std::abs(m_sx - m_sy) < 1e-9 && std::abs(m_sx - m_sz) < 1e-9;
+        if (scaleXYZ && !uniformXYZ) {
             gp_GTrsf gt;
             gt.SetVectorialPart(gp_Mat(m_sx, 0, 0, 0, m_sy, 0, 0, 0, m_sz));
             gt.SetTranslationPart(gp_XYZ(m_cx - m_sx * m_cx,
                                          m_cy - m_sy * m_cy,
                                          m_cz - m_sz * m_cz));
-            BRepBuilderAPI_GTransform gtf(m_previousShape, gt, true);
-            gtf.Build();
+            materializr::MeshFreeGTransform gtf(m_previousShape, gt);
             if (!gtf.IsDone()) return false;
             doc.updateBody(m_bodyId, gtf.Shape());
             carryFaceIds(gtf);
@@ -189,7 +195,7 @@ bool TransformOp::execute(Document& doc) {
                 break;
             }
             case TransformType::Scale: {
-                trsf.SetScale(center, m_scale);
+                trsf.SetScale(center, uniformXYZ ? m_sx : m_scale);
                 break;
             }
         }
@@ -208,6 +214,9 @@ bool TransformOp::execute(Document& doc) {
         // stays glued to the body's face. The sketch's own 2D points are
         // already in plane-local coordinates, so transforming just the
         // plane is enough to keep the world-space sketch geometry aligned.
+        // (Not for a panel/gizmo scale routed here as uniformXYZ: that path
+        // never moved sketches when it ran through GTransform, keep it so.)
+        if (!uniformXYZ)
         for (const auto& [sid, prevPln] : m_previousSketchPlanes) {
             auto sk = doc.getSketch(sid);
             if (!sk) continue;
@@ -260,8 +269,18 @@ std::string TransformOp::description() const {
             return "Rotate " + std::to_string(m_angle) + " deg around (" +
                    std::to_string(m_ax) + ", " + std::to_string(m_az) + ", " +
                    std::to_string(m_ay) + ")";
-        case TransformType::Scale:
-            return "Scale by " + std::to_string(m_scale);
+        case TransformType::Scale: {
+            // The panel and gizmo set per-axis factors, never m_scale.
+            char buf[96];
+            if (!m_nonUniform)
+                std::snprintf(buf, sizeof(buf), "Scale %.4g%%", m_scale * 100.0);
+            else if (std::abs(m_sx - m_sy) < 1e-9 && std::abs(m_sx - m_sz) < 1e-9)
+                std::snprintf(buf, sizeof(buf), "Scale %.4g%%", m_sx * 100.0);
+            else
+                std::snprintf(buf, sizeof(buf), "Scale (%.4g%%, %.4g%%, %.4g%%)",
+                              m_sx * 100.0, m_sy * 100.0, m_sz * 100.0);
+            return buf;
+        }
     }
     return "Transform";
 }
